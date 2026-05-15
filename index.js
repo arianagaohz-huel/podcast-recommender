@@ -64,7 +64,7 @@ async function searchPodcasts(token) {
           Authorization: `Bearer ${token}`,
         },
         params: {
-          q: "psychology OR relationships OR AI",
+          q: "psychology OR book recommendation OR book club OR AI OR technology news OR advancements",
           type: "show",
           market: "GB",
           limit: 10,
