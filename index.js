@@ -67,7 +67,7 @@ async function searchPodcasts(token) {
           q: "psychology OR book recommendation OR book club OR AI OR product managers OR films",
           type: "show",
           market: "GB",
-          limit: 10,
+          limit: 50, // Increased limit to get more results for filtering
         },
       }
     );
@@ -83,6 +83,34 @@ async function searchPodcasts(token) {
       `Podcast search failed: ${error.message}`
     );
   }
+}
+
+// EXCLUSION FILTER: Check if podcast should be excluded
+// Filters out:
+// - AI-generated podcasts
+// - Psychology course/textbook content (e.g., AQA Psychology, A Level Psychology, revision materials)
+function shouldExcludePodcast(show) {
+  const text = `${show.name} ${show.description || ""}`.toLowerCase();
+  
+  // Keywords that indicate AI-generated or course content to EXCLUDE
+  const excludeKeywords = [
+    "ai-generated",
+    "ai generated",
+    "automatically generated",
+    "auto-generated",
+    "aqa psychology",
+    "a level psychology",
+    "a-level psychology",
+    "gcse psychology",
+    "psychology revision",
+    "textbook",
+    "study guide",
+    "exam prep",
+    "course material",
+    "educational content for students",
+  ];
+  
+  return excludeKeywords.some(keyword => text.includes(keyword));
 }
 
 // Determine podcast genre based on keywords in name and description
@@ -193,6 +221,52 @@ async function sendToNotion(show) {
   }
 }
 
+// Filter and organize podcasts into categories with 50/50 ratio
+// Target: 10 total podcasts (5 AI/PM + 5 Psychology/Books/Films)
+function organizePodcastsByRatio(shows) {
+  const TARGET_TOTAL = 10;
+  const AI_PM_TARGET = 5;
+  const OTHER_TARGET = 5;
+  
+  const aiPmPodcasts = [];
+  const otherPodcasts = [];
+  
+  for (const show of shows) {
+    // Skip excluded podcasts
+    if (shouldExcludePodcast(show)) {
+      console.log(`⏭️  Skipping excluded podcast: ${show.name}`);
+      continue;
+    }
+    
+    const genre = determinePodcastGenre(show);
+    
+    // Categorize by genre
+    if (genre === "AI or Tech" || genre === "Product Managers") {
+      if (aiPmPodcasts.length < AI_PM_TARGET) {
+        aiPmPodcasts.push(show);
+      }
+    } else if (genre === "Psychology" || genre === "Book or Films") {
+      if (otherPodcasts.length < OTHER_TARGET) {
+        otherPodcasts.push(show);
+      }
+    }
+    
+    // Stop when we have enough podcasts
+    if (aiPmPodcasts.length >= AI_PM_TARGET && otherPodcasts.length >= OTHER_TARGET) {
+      break;
+    }
+  }
+  
+  const selectedPodcasts = [...aiPmPodcasts, ...otherPodcasts];
+  
+  console.log(`\n📊 Podcast Ratio Summary:`);
+  console.log(`   AI/Product Manager: ${aiPmPodcasts.length}/${AI_PM_TARGET}`);
+  console.log(`   Psychology/Books/Films: ${otherPodcasts.length}/${OTHER_TARGET}`);
+  console.log(`   Total Selected: ${selectedPodcasts.length}/${TARGET_TOTAL}\n`);
+  
+  return selectedPodcasts;
+}
+
 async function main() {
   try {
     console.log("🚀 Starting podcast recommendation workflow...");
@@ -205,9 +279,17 @@ async function main() {
     const token = await getSpotifyToken();
     const shows = await searchPodcasts(token);
 
+    // Filter and organize podcasts by ratio (50/50 split)
+    const selectedPodcasts = organizePodcastsByRatio(shows);
+    
+    if (selectedPodcasts.length === 0) {
+      console.warn("⚠️  No suitable podcasts found after filtering and ratio adjustment");
+      process.exit(0);
+    }
+
     // Send to Notion
-    console.log(`📝 Sending ${shows.length} podcasts to Notion...`);
-    for (const show of shows) {
+    console.log(`📝 Sending ${selectedPodcasts.length} podcasts to Notion...`);
+    for (const show of selectedPodcasts) {
       await sendToNotion(show);
     }
 
