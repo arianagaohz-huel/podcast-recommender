@@ -93,6 +93,9 @@ async function sendToNotion(show) {
       ? show.description.slice(0, 1000)
       : "No description available";
 
+    // Get current date in ISO format (YYYY-MM-DD)
+    const dateAdded = new Date().toISOString().split('T')[0];
+
     await axios.post(
       "https://api.notion.com/v1/pages",
       {
@@ -118,6 +121,11 @@ async function sendToNotion(show) {
                 },
               },
             ],
+          },
+          "Date Added": {
+            date: {
+              start: dateAdded,
+            },
           },
         },
       },
