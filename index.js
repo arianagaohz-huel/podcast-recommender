@@ -67,7 +67,7 @@ async function searchPodcasts(token) {
           q: "psychology OR book recommendation OR book club OR AI OR product managers OR films",
           type: "show",
           market: "GB",
-          limit: "30", // Increased limit to get more results for filtering
+          limit: 10, // Increased limit to get more results for filtering
         },
       }
     );
